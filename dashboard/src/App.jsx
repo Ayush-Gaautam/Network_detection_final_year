@@ -271,7 +271,7 @@ function Sidebar({ route, mobileNav, onClose }) {
         <div className="status-block">
           <span className="live-dot" />
           <span>System operational</span>
-          <strong>99.99%</strong>
+          <strong>CONNECTED</strong>
         </div>
 
         <div className="sensor-row">
@@ -571,15 +571,18 @@ function Dashboard({
   packets,
 }) {
 
-  const normalPercentage = percentage(
-    stats.normalTraffic,
-    stats.totalPackets
-  )
+  const totalFlows = Number(stats.totalFlows ?? stats.totalPackets ?? 0)
+  const normalFlows = Number(stats.normalFlows ?? stats.normalTraffic ?? 0)
+  const attackFlows = Number(stats.attackFlows ?? 0)
+  const anomalyCount = Number(stats.anomalies ?? 0)
 
-  const anomalyPercentage = percentage(
-    stats.anomalies,
-    stats.totalPackets
-  )
+  const normalPercentage = Number(
+    stats.normalPercentage ?? percentage(normalFlows, totalFlows)
+  ).toFixed(2)
+
+  const anomalyPercentage = Number(
+    stats.anomalyPercentage ?? percentage(anomalyCount, totalFlows)
+  ).toFixed(2)
 
   return (
     <>
@@ -629,31 +632,31 @@ function Dashboard({
 
         <StatCard
           label="Total Flows"
-          value={formatNumber(stats.totalPackets)}
+          value={formatNumber(totalFlows)}
           detail="Flows processed from PCAP"
           icon={Database}
           accent="indigo"
         />
 
         <StatCard
-          label="Flows / sec"
-          value={traffic.at(-1)?.packets || 0}
-          detail="Processed traffic"
+          label="Flows Loaded"
+          value={formatNumber(totalFlows)}
+          detail="Network flow records"
           icon={Gauge}
           accent="violet"
         />
 
         <StatCard
           label="Normal Flows"
-          value={`${normalPercentage}%`}
-          detail={`${formatNumber(stats.normalTraffic)} normal flows`}
+          value={formatNumber(normalFlows)}
+          detail={`${normalPercentage}% of flows`}
           icon={ShieldCheck}
           accent="blue"
         />
 
         <StatCard
           label="Anomalies Detected"
-          value={formatNumber(stats.anomalies)}
+          value={formatNumber(anomalyCount)}
           detail={`${anomalyPercentage}% of flows`}
           icon={AlertOctagon}
           accent="amber"
@@ -661,8 +664,8 @@ function Dashboard({
 
         <StatCard
           label="Attack Flows"
-          value={formatNumber(stats.anomalies)}
-          detail="ML classified suspicious flows"
+          value={formatNumber(attackFlows)}
+          detail="Random Forest classified flows"
           icon={Zap}
           accent="red"
         />
@@ -720,7 +723,7 @@ function Dashboard({
 
         <ThreatDistribution
           anomalies={anomalies}
-          total={stats.totalPackets}
+          total={totalFlows}
         />
 
 
@@ -795,7 +798,7 @@ function ThreatDistribution({
 
       <SectionHeader
         eyebrow="RISK PROFILE"
-        title="Threat distribution"
+        title="Anomaly distribution"
       />
 
       <ResponsiveContainer
@@ -1344,10 +1347,13 @@ function Monitoring({
   stats,
 }) {
 
-  const normalPercent = percentage(
-    stats.normalTraffic,
-    stats.totalPackets
-  )
+  const totalFlows = Number(stats.totalFlows ?? stats.totalPackets ?? 0)
+  const normalFlows = Number(stats.normalFlows ?? stats.normalTraffic ?? 0)
+  const anomalyCount = Number(stats.anomalies ?? 0)
+
+  const normalPercent = Number(
+    stats.normalPercentage ?? percentage(normalFlows, totalFlows)
+  ).toFixed(2)
 
   return (
     <>
@@ -1381,23 +1387,23 @@ function Monitoring({
       <div className="metric-strip">
 
         <div>
-          <span>Flows / sec</span>
+          <span>Flows loaded</span>
 
           <strong>
-            {traffic.at(-1)?.packets || 0}
+            {formatNumber(totalFlows)}
           </strong>
 
           <small>
-            Backend telemetry
+            Backend PCAP telemetry
           </small>
         </div>
 
 
         <div>
-          <span>Total flows</span>
+          <span>Attack flows</span>
 
           <strong>
-            {formatNumber(stats.totalPackets)}
+            {formatNumber(stats.attackFlows)}
           </strong>
 
           <small>
@@ -1423,9 +1429,9 @@ function Monitoring({
           <span>Normal / anomaly</span>
 
           <strong>
-            {formatNumber(stats.normalTraffic)}
+            {formatNumber(normalFlows)}
             {' / '}
-            {formatNumber(stats.anomalies)}
+            {formatNumber(anomalyCount)}
           </strong>
 
           <small className="good">
@@ -1512,7 +1518,7 @@ function LiveConnectionHealth() {
       <div className="health-ring">
 
         <div>
-          <strong>100</strong>
+          <strong>OK</strong>
           <span>API HEALTH</span>
         </div>
 
@@ -1523,7 +1529,7 @@ function LiveConnectionHealth() {
         <div>
           <span className="live-dot" />
           Packet ingestion
-          <b>Normal</b>
+          <b>Connected</b>
         </div>
 
         <div>
@@ -1799,11 +1805,12 @@ function Analytics({
   anomalies,
 }) {
 
-  const anomalyPercent =
-    percentage(
-      stats.anomalies,
-      stats.totalPackets
-    )
+  const totalFlows = Number(stats.totalFlows ?? stats.totalPackets ?? 0)
+  const anomalyCount = Number(stats.anomalies ?? 0)
+
+  const anomalyPercent = Number(
+    stats.anomalyPercentage ?? percentage(anomalyCount, totalFlows)
+  ).toFixed(2)
 
 
   const scores = anomalies
@@ -1821,14 +1828,9 @@ function Analytics({
       : '0.0'
 
 
-  const peakThroughput =
-    Math.max(
-      0,
-      ...analytics.traffic.map(
-        (item) =>
-          Number(item.packets) || 0
-      )
-    )
+  const pcapFlowCount = Number(
+    analytics.traffic?.[0]?.packets ?? totalFlows
+  )
 
 
   return (
@@ -1867,7 +1869,7 @@ function Analytics({
           <span>Total flows</span>
 
           <strong>
-            {formatNumber(stats.totalPackets)}
+            {formatNumber(totalFlows)}
           </strong>
         </div>
 
@@ -1891,10 +1893,10 @@ function Analytics({
 
 
         <div>
-          <span>Peak throughput</span>
+          <span>PCAP flow count</span>
 
           <strong>
-            {formatNumber(peakThroughput)}
+            {formatNumber(pcapFlowCount)}
             <small> flows</small>
           </strong>
         </div>
@@ -1988,7 +1990,7 @@ function Analytics({
 
         <ThreatDistribution
           anomalies={anomalies}
-          total={stats.totalPackets}
+          total={totalFlows}
         />
 
 
@@ -2072,7 +2074,7 @@ function AnalyticsDistribution({
 
         <SectionHeader
           eyebrow="PACKET PROFILE"
-          title="Packet-size distribution"
+          title="Flow-size distribution"
         />
 
         <ResponsiveContainer
@@ -2221,6 +2223,16 @@ function TrafficTable({
   )
 
 
+  const PAGE_SIZE = 25
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+
+  const safePage = Math.min(page, totalPages)
+
+  const visiblePackets = filtered.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE
+  )
+
   return (
     <>
 
@@ -2293,9 +2305,10 @@ function TrafficTable({
 
           <select
             value={protocol}
-            onChange={(event) =>
+            onChange={(event) => {
               setProtocol(event.target.value)
-            }
+              setPage(1)
+            }}
           >
             <option>
               All protocols
@@ -2308,9 +2321,10 @@ function TrafficTable({
 
           <select
             value={status}
-            onChange={(event) =>
+            onChange={(event) => {
               setStatus(event.target.value)
-            }
+              setPage(1)
+            }}
           >
             <option>
               All statuses
@@ -2330,7 +2344,7 @@ function TrafficTable({
 
 
         <PacketTable
-          packets={filtered}
+          packets={visiblePackets}
         />
 
 
@@ -2343,21 +2357,22 @@ function TrafficTable({
           <div>
 
             <button
-              disabled={page === 1}
+              disabled={safePage === 1}
               onClick={() =>
-                setPage(1)
+                setPage(Math.max(1, safePage - 1))
               }
             >
               Previous
             </button>
 
             <b>
-              {page}
+              {safePage} / {totalPages}
             </b>
 
             <button
+              disabled={safePage >= totalPages}
               onClick={() =>
-                setPage(page + 1)
+                setPage(Math.min(totalPages, safePage + 1))
               }
             >
               Next
@@ -2396,7 +2411,7 @@ function PacketTable({
             <th>Protocol</th>
             <th>Source port</th>
             <th>Destination port</th>
-            <th>Packet size</th>
+            <th>Flow bytes</th>
             <th>Status</th>
             <th>Anomaly score</th>
           </tr>
