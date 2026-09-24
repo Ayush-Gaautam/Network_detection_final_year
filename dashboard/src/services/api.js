@@ -73,8 +73,9 @@ export const getLivePackets = getPackets
 ================================ */
 
 export const getNetworkTopology = () => {
-  return Promise.resolve({
-    nodes: [],
-    links: []
-  })
+  return request('/topology')
 }
+
+export const getAttackTypes = () => request('/attack-types')
+
+export const getHealth = () => request('/health')

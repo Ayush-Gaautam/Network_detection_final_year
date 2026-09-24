@@ -1,22 +1,9 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Grid, Html, Line, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { Pause, Play, RefreshCcw, Rotate3d, ZoomIn } from 'lucide-react'
-
-const topologyNodes = [
-  { id: 'gateway', label: 'GATEWAY', ip: '10.171.100.1', position: [0, 0, 0], role: 'Core router', status: 'Normal', protocol: 'TCP', packets: '8,412', connections: 18, packetRate: 2184, lastDetected: '2 sec ago' },
-  { id: 'device', label: 'LOCAL DEVICE', ip: '10.171.100.58', position: [-2.7, 1.25, 0.25], role: 'Endpoint', status: 'Anomaly', protocol: 'TCP', severity: 'High', score: 94, packets: '4,281', connections: 12, packetRate: 386, lastDetected: '14:32:08' },
-  { id: 'dns', label: 'DNS', ip: '10.0.0.4', position: [-2.35, -1.35, -0.3], role: 'Resolver', status: 'Normal', protocol: 'UDP', packets: '1,284', connections: 6, packetRate: 142, lastDetected: '12 sec ago' },
-  { id: 'web', label: 'WEB SERVER', ip: '40.79.150.124', position: [2.5, 1.35, 0.15], role: 'External server', status: 'Normal', protocol: 'TCP', packets: '2,914', connections: 9, packetRate: 524, lastDetected: '4 sec ago' },
-  { id: 'api', label: 'API SERVER', ip: '10.0.0.18', position: [2.65, -1.05, 0.4], role: 'Application node', status: 'Warning', protocol: 'TCP', packets: '1,920', connections: 8, packetRate: 294, lastDetected: '8 sec ago' },
-  { id: 'database', label: 'DATABASE', ip: '10.0.0.22', position: [0.15, -2.35, -0.2], role: 'Internal service', status: 'Normal', protocol: 'TCP', packets: '1,028', connections: 5, packetRate: 118, lastDetected: '6 sec ago' },
-]
-
-const links = [
-  ['device', 'gateway', 'anomaly'], ['dns', 'gateway', 'normal'], ['gateway', 'web', 'normal'],
-  ['gateway', 'api', 'normal'], ['gateway', 'database', 'normal'], ['device', 'web', 'anomaly'],
-]
+import { getNetworkTopology } from '../services/api'
 
 function stateColor(status) {
   return status === 'Anomaly' ? '#ef4444' : status === 'Warning' ? '#f59e0b' : '#818cf8'
@@ -188,8 +175,8 @@ function ConnectionLink({ fromNode, toNode, type, paused, offset }) {
   )
 }
 
-function Scene({ selectedNode, onSelect, paused }) {
-  const nodes = useMemo(() => Object.fromEntries(topologyNodes.map((node) => [node.id, node])), [])
+function Scene({ topology, selectedNode, onSelect, paused }) {
+  const nodes = useMemo(() => Object.fromEntries(topology.nodes.map((node) => [node.id, node])), [topology.nodes])
 
   return (
     <>
@@ -216,19 +203,19 @@ function Scene({ selectedNode, onSelect, paused }) {
       />
 
       {/* 3D Curved Connection Paths */}
-      {links.map(([from, to, type], index) => (
+      {topology.links.map((link, index) => (
         <ConnectionLink
-          key={`${from}-${to}`}
-          fromNode={nodes[from]}
-          toNode={nodes[to]}
-          type={type}
+          key={`${link.from}-${link.to}`}
+          fromNode={nodes[link.from]}
+          toNode={nodes[link.to]}
+          type={link.type}
           paused={paused}
           offset={index * 0.18}
         />
       ))}
 
       {/* 3D Physical Nodes */}
-      {topologyNodes.map((node) => (
+      {topology.nodes.map((node) => (
         <Node
           key={node.id}
           node={node}
@@ -241,10 +228,24 @@ function Scene({ selectedNode, onSelect, paused }) {
 }
 
 export default function NetworkTopology() {
-  const [selectedNode, setSelectedNode] = useState(topologyNodes[1])
+  const [topology, setTopology] = useState({ nodes: [], links: [] })
+  const [selectedNode, setSelectedNode] = useState(null)
   const [paused, setPaused] = useState(false)
   const [resetView, setResetView] = useState(0)
   const controls = useRef()
+
+  useEffect(() => {
+    let active = true
+    getNetworkTopology()
+      .then((data) => {
+        if (active) {
+          setTopology(data)
+          setSelectedNode(data.nodes?.[0] || null)
+        }
+      })
+      .catch((error) => console.error('Failed to load network topology:', error))
+    return () => { active = false }
+  }, [])
 
   const resetCamera = () => {
     controls.current?.reset()
@@ -260,7 +261,7 @@ export default function NetworkTopology() {
         gl={{ antialias: true }}
         onPointerMissed={() => setSelectedNode(null)}
       >
-        <Scene selectedNode={selectedNode} onSelect={setSelectedNode} paused={paused} />
+        <Scene topology={topology} selectedNode={selectedNode} onSelect={setSelectedNode} paused={paused} />
         <OrbitControls
           ref={controls}
           enablePan
@@ -277,7 +278,7 @@ export default function NetworkTopology() {
         <span><i className="legend-dot green" /> Healthy Node</span>
         <span><i className="legend-dot amber" /> Warning State</span>
         <span><i className="legend-dot red" /> Threat Event</span>
-        <small>3D Network Topology · Drag to Orbit · Scroll to Zoom</small>
+        <small>3D Network Topology · PCAP endpoint aggregates</small>
       </div>
 
       <div className="topology-controls">
@@ -304,18 +305,12 @@ export default function NetworkTopology() {
           <div className="node-detail-grid">
             <span>Status <b className={selectedNode.status === 'Normal' ? 'text-green' : selectedNode.status === 'Warning' ? 'text-amber' : 'text-red'}>{selectedNode.status === 'Anomaly' ? 'THREAT DETECTED' : selectedNode.status}</b></span>
             <span>Protocol <b>{selectedNode.protocol}</b></span>
+            <span>Flows <b>{selectedNode.flows}</b></span>
             <span>Packets <b>{selectedNode.packets}</b></span>
-            <span>Connections <b>{selectedNode.connections}</b></span>
-            <span>Packet Rate <b>{selectedNode.packetRate} / sec</b></span>
-            <span>Last Activity <b>{selectedNode.lastDetected}</b></span>
+            <span>Bytes <b>{selectedNode.bytes}</b></span>
+            <span>Attack classifications <b>{selectedNode.attackFlows}</b></span>
+            <span>Isolation Forest anomalies <b>{selectedNode.anomalyFlows}</b></span>
           </div>
-          {selectedNode.score && (
-            <div className="node-score">
-              <span>Anomaly Threat Score</span>
-              <strong>{selectedNode.score}%</strong>
-              <i><em style={{ width: `${selectedNode.score}%` }} /></i>
-            </div>
-          )}
         </div>
       )}
     </div>

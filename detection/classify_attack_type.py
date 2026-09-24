@@ -2,7 +2,7 @@ import pandas as pd
 
 
 INPUT_FILE = "data/raw/pcap_classified.csv"
-OUTPUT_FILE = "data/raw/final_detection_results.csv"
+OUTPUT_FILE = "data/raw/attack_type_results.csv"
 
 
 print("Loading classified PCAP...")

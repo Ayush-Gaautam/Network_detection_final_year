@@ -1,6 +1,25 @@
 {
     "chat.tools.terminal.autoApprove": {
         "git remote": true,
-        "git check-ignore": true
+        "git check-ignore": true,
+        "git commit": true,
+        "git push": true,
+        "git rev-parse": true,
+        "git ls-remote": true,
+        "/^python -m py_compile api\\\\main\\.py; python -c \"from api\\.main import get_topology, get_attack_types; topology=get_topology\\(\\); types=get_attack_types\\(\\); print\\(len\\(topology\\['nodes'\\]\\), len\\(topology\\['links'\\]\\), topology\\['source'\\]\\); print\\(types\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "npm run build": true,
+        "Push-Location": true,
+        "Pop-Location": true,
+        "/^python -m py_compile api\\\\main\\.py; python -c \"from api\\.main import health, get_stats, get_topology, get_attack_types; print\\(health\\(\\)\\); print\\(\\{k: get_stats\\(\\)\\[k\\] for k in \\('totalFlows','normalFlows','attackFlows','anomalies'\\)\\}\\); print\\(len\\(get_topology\\(\\)\\['nodes'\\]\\), len\\(get_topology\\(\\)\\['links'\\]\\)\\); print\\(sum\\(item\\['value'\\] for item in get_attack_types\\(\\)\\['items'\\]\\)\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python -m py_compile api\\\\main\\.py; python -c \"from api\\.main import get_stats, get_topology, get_attack_types; stats=get_stats\\(\\); assert \\(stats\\['totalFlows'\\], stats\\['normalFlows'\\], stats\\['attackFlows'\\], stats\\['anomalies'\\]\\) == \\(25911, 20769, 5142, 177\\); assert sum\\(item\\['value'\\] for item in get_attack_types\\(\\)\\['items'\\]\\) == 25911; assert get_topology\\(\\)\\['nodes'\\]; print\\('backend checks passed'\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
     }
 }

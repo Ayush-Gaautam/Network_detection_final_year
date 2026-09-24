@@ -1,6 +1,9 @@
 pandas
 numpy
 scikit-learn
+fastapi
+uvicorn
+joblib
 scapy
 streamlit
 plotly

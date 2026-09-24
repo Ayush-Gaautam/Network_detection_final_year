@@ -12,8 +12,10 @@ import {
 
 import {
   getAnalytics,
+  getAttackTypes,
   getAnomalies,
   getDashboardStats,
+  getHealth,
   getPackets,
   getTraffic,
 } from './services/api'
@@ -64,6 +66,8 @@ function App() {
   const [anomalies, setAnomalies] = useState([])
   const [packets, setPackets] = useState([])
   const [analytics, setAnalytics] = useState(null)
+  const [health, setHealth] = useState(null)
+  const [attackTypes, setAttackTypes] = useState(null)
 
   const [mobileNav, setMobileNav] = useState(false)
   const [selectedAnomaly, setSelectedAnomaly] = useState(null)
@@ -80,12 +84,16 @@ function App() {
         liveAnomalies,
         livePackets,
         analyticsData,
+        healthData,
+        attackTypesData,
       ] = await Promise.all([
         getDashboardStats(),
         getTraffic(),
         getAnomalies(),
         getPackets(),
         getAnalytics(),
+        getHealth(),
+        getAttackTypes(),
       ])
 
       setStats(dashboardStats)
@@ -93,6 +101,8 @@ function App() {
       setAnomalies(liveAnomalies)
       setPackets(livePackets)
       setAnalytics(analyticsData)
+      setHealth(healthData)
+      setAttackTypes(attackTypesData)
     } catch (error) {
       console.error('Failed to load backend data:', error)
     }
@@ -136,6 +146,7 @@ function App() {
       <Sidebar
         route={route}
         mobileNav={mobileNav}
+        health={health}
         onClose={() => setMobileNav(false)}
       />
 
@@ -162,6 +173,7 @@ function App() {
               traffic={traffic}
               packets={packets}
               stats={stats}
+              health={health}
             />
           )}
 
@@ -178,6 +190,8 @@ function App() {
               stats={stats}
               packets={packets}
               anomalies={anomalies}
+              health={health}
+              attackTypes={attackTypes}
             />
           )}
 
@@ -206,7 +220,10 @@ function App() {
 // SIDEBAR
 // ============================================================
 
-function Sidebar({ route, mobileNav, onClose }) {
+function Sidebar({ route, mobileNav, health, onClose }) {
+  const apiReady = health?.status === 'healthy'
+  const modelsReady = health?.models_loaded === true
+  const flowsReady = health?.flows_loaded === true
   return (
     <aside className={`sidebar ${mobileNav ? 'sidebar-open' : ''}`}>
 
@@ -271,19 +288,19 @@ function Sidebar({ route, mobileNav, onClose }) {
         <div className="status-block">
           <span className="live-dot" />
           <span>System operational</span>
-          <strong>CONNECTED</strong>
+          <strong>{apiReady ? 'CONNECTED' : 'UNAVAILABLE'}</strong>
         </div>
 
         <div className="sensor-row">
           <Database size={13} />
           <span>Sensor cluster</span>
-          <span className="status-online">ONLINE</span>
+          <span className="status-online">{flowsReady ? 'LOADED' : 'WAITING'}</span>
         </div>
 
         <div className="sensor-row">
           <Cpu size={13} />
           <span>Inference engine</span>
-          <span className="status-online">READY</span>
+          <span className="status-online">{modelsReady ? 'READY' : 'WAITING'}</span>
         </div>
 
       </div>
@@ -573,7 +590,7 @@ function Dashboard({
 
   const totalFlows = Number(stats.totalFlows ?? stats.totalPackets ?? 0)
   const normalFlows = Number(stats.normalFlows ?? stats.normalTraffic ?? 0)
-  const attackFlows = Number(stats.attackFlows ?? 0)
+  const attackClassifications = Number(stats.attackFlows ?? 0)
   const anomalyCount = Number(stats.anomalies ?? 0)
 
   const normalPercentage = Number(
@@ -663,8 +680,8 @@ function Dashboard({
         />
 
         <StatCard
-          label="Attack Flows"
-          value={formatNumber(attackFlows)}
+          label="Attack Classifications"
+          value={formatNumber(attackClassifications)}
           detail="Random Forest classified flows"
           icon={Zap}
           accent="red"
@@ -684,7 +701,6 @@ function Dashboard({
       {/* NETWORK TOPOLOGY */}
 
       <section className="panel topology-panel">
-
         <SectionHeader
           eyebrow="NETWORK MONITORING"
           title="Network Telemetry Hero Scene"
@@ -1345,6 +1361,7 @@ function Monitoring({
   traffic,
   packets,
   stats,
+  health,
 }) {
 
   const totalFlows = Number(stats.totalFlows ?? stats.totalPackets ?? 0)
@@ -1400,7 +1417,7 @@ function Monitoring({
 
 
         <div>
-          <span>Attack flows</span>
+          <span>Attack classifications</span>
 
           <strong>
             {formatNumber(stats.attackFlows)}
@@ -1450,7 +1467,7 @@ function Monitoring({
           action={
             <span className="chart-live">
               <span className="live-dot" />
-              API connected
+              {health?.status === 'healthy' ? 'API connected' : 'API unavailable'}
             </span>
           }
         />
@@ -1474,7 +1491,7 @@ function Monitoring({
         </section>
 
 
-        <LiveConnectionHealth />
+        <LiveConnectionHealth health={health} />
 
       </div>
 
@@ -1505,7 +1522,10 @@ function Monitoring({
 // CONNECTION HEALTH
 // ============================================================
 
-function LiveConnectionHealth() {
+function LiveConnectionHealth({ health }) {
+  const apiReady = health?.status === 'healthy'
+  const modelsReady = health?.models_loaded === true
+  const flowsReady = health?.flows_loaded === true
 
   return (
     <section className="panel health-panel">
@@ -1518,7 +1538,7 @@ function LiveConnectionHealth() {
       <div className="health-ring">
 
         <div>
-          <strong>OK</strong>
+            <strong>{apiReady ? 'OK' : 'WAIT'}</strong>
           <span>API HEALTH</span>
         </div>
 
@@ -1527,21 +1547,21 @@ function LiveConnectionHealth() {
       <div className="health-list">
 
         <div>
-          <span className="live-dot" />
+          <span className={flowsReady ? 'live-dot' : 'legend-dot amber'} />
           Packet ingestion
-          <b>Connected</b>
+          <b>{flowsReady ? 'Loaded' : 'Unavailable'}</b>
         </div>
 
         <div>
-          <span className="live-dot" />
+          <span className={modelsReady ? 'live-dot' : 'legend-dot amber'} />
           Model inference
-          <b>Ready</b>
+          <b>{modelsReady ? 'Loaded' : 'Unavailable'}</b>
         </div>
 
         <div>
-          <span className="live-dot" />
+          <span className={apiReady ? 'live-dot' : 'legend-dot amber'} />
           API gateway
-          <b>Connected</b>
+          <b>{apiReady ? 'Connected' : 'Unavailable'}</b>
         </div>
 
       </div>
@@ -1803,6 +1823,7 @@ function Analytics({
   stats,
   packets,
   anomalies,
+  attackTypes,
 }) {
 
   const totalFlows = Number(stats.totalFlows ?? stats.totalPackets ?? 0)
@@ -1884,7 +1905,7 @@ function Analytics({
 
 
         <div>
-          <span>Mean detection score</span>
+          <span>Mean anomaly score</span>
 
           <strong>
             {meanScore}%
@@ -1997,6 +2018,22 @@ function Analytics({
         <AnalyticsDistribution
           packets={packets}
         />
+
+        <section className="panel large-chart">
+          <SectionHeader
+            eyebrow="HEURISTIC ANALYSIS"
+            title="Attack classification"
+          />
+          <p className="muted-note">
+            Behavioral indicators applied to Random Forest classifications; not ground truth.
+          </p>
+          {(attackTypes?.items || []).map((item) => (
+            <div className="metric-row" key={item.name}>
+              <span>{item.name}</span>
+              <strong>{formatNumber(item.value)}</strong>
+            </div>
+          ))}
+        </section>
 
       </div>
 

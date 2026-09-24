@@ -848,6 +848,28 @@ a {
   margin-left: 4px;
 }
 
+.muted-note {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.metric-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.metric-row strong {
+  color: #f8fafc;
+  font: 600 12px var(--mono);
+}
+
 .donut-wrap {
   display: flex;
   align-items: center;
